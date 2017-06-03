@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mental workload</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Boris Shishov">
+    <script type="text/javascript" src="js/seedrandom.min.js"></script>
+    <script type="text/javascript" src="js/svg.min.js"></script>
+    <style>
+        body, html {
+            font-family: 'Georgia';
+            padding: 0;
+            margin: 0;
+        }
+    </style>
+    <script type="text/javascript">
+        parent = undefined;
+
+        function receiveMessage(event) {
+            if (!parent)
+                parent = event.source;
+
+            console.log('Received message from parent window', event.data);
+
+            if (event.data.name)
+                document.dispatchEvent(CustomEvent(event.data.name));
+        }
+        window.addEventListener("message", receiveMessage);
+
+        function log(key, data) {
+            if (parent) {
+                var payload = {name: key, data: data};
+                parent.postMessage({ name: "log", data: payload }, "*");
+            }
+        }
+
+        function complete() {
+            if (parent)
+                parent.postMessage({ name: "complete" }, "*");
+        }
+    </script>
+</head>
+<body>
+    <svg height="500px" width="100%" id="test_svg"></svg>
+    <script type="text/javascript">
+        var draw = SVG('test_svg');
+
+        // OPTIONS
+        var DURATION = 3 * 60 * 1000; // ms
+        var RELAXING_DURATION = 1 * 60 * 1000; // ms
+        var TTL = 1300; // ms
+        var MIN_SIZE = 30; // px
+        var MAX_SIZE = 40; // px
+        var START_DELAY = 1200; // ms
+        var TARGET_DELAY = 300; // ms
+        var GOOD_PROBABILITY = 0.5;
+        var RANDOM_SEED = "42";
+
+
+        var random = new Math.seedrandom(RANDOM_SEED);
+        var startTime;
+        var completed;
+        var missed;
+        var missclicks;
+        var id;
+
+        function getRandomInt(min, max) {
+            return Math.floor(random() * (max - min)) + min;
+        }
+
+        function getDelay(timeSinceStart) {
+            if (timeSinceStart < DURATION) {
+                var progress = timeSinceStart / DURATION;
+                return START_DELAY + (TARGET_DELAY - START_DELAY) * progress;
+            } else {
+                var progress = (timeSinceStart - DURATION) / RELAXING_DURATION;
+                return TARGET_DELAY + (START_DELAY - TARGET_DELAY) * progress;
+            }
+        }
+
+        var bgr = draw
+            .rect("100%", "100%")
+            .fill("white")
+            .click(bgrClick);
+
+        function time() {
+            return Date.now() - startTime;
+        }
+
+        function spawn() {
+            var t = time();
+            if(t < DURATION + RELAXING_DURATION) {
+                var x = getRandomInt(10, 90) + "%";
+                var y = getRandomInt(10, 90) + "%";
+
+                var circle = draw
+                    .circle(MIN_SIZE)
+                    .center(x, y)
+                    .data({ id: id, time: t })
+                    .fill('blue')
+                    .style('cursor', 'pointer')
+                    .click(circleClick)
+                    .animate(TTL)
+                    .radius(MAX_SIZE)
+                    .after(circleMiss);
+
+                setTimeout(spawn, getDelay(t));
+                log("spawn", { id: id, x: x, y: y });
+                id++;
+            } else {
+                complete();
+            }
+        }
+
+        function bgrClick() {
+            missclicks++;
+            log("missclick", { missclicks: missclicks });
+        }
+
+        function circleMiss() {
+            missed++;
+            log("circle_missed", { id: this.data('id'), missed: missed });
+            this.remove();
+        }
+
+        function circleClick() {
+            completed++;
+            log("click_on_circle", {
+                id: this.data('id'),
+                reaction: time() - this.data('time'),
+                completed: completed
+            });
+            this.pause();
+            this.remove();
+        }
+
+        function start() {
+            missclicks = 0;
+            completed = 0;
+            missed = 0;
+            id = 0;
+            startTime = Date.now();
+            setTimeout(spawn, START_DELAY);
+            document.addEventListener("mousemove", onMouseMove);
+            document.addEventListener("click", onMouseClick);
+        }
+
+
+        function onMouseMove(e) {
+            log("mouse_move", getXY(e, document.documentElement));
+        }
+
+        function onMouseClick(e) {
+            log("mouse_click", getXY(e, document.documentElement));
+        }
+
+        document.addEventListener('testInit', function(e) {
+            console.log('INIT event handler');
+        });
+
+        document.addEventListener('testStart', function(e) {
+            console.log('START event handler');
+            start();
+        });
+
+        document.addEventListener('testComplete', function(e) {
+            console.log('COMPLETE event handler');
+            document.removeEventListener("mousemove", onMouseMove);
+            document.removeEventListener("click", onMouseClick);
+        });
+
+        function getXY(evt, element) {
+            var rect = element.getBoundingClientRect();
+            var scrollTop = document.documentElement.scrollTop?
+                            document.documentElement.scrollTop:document.body.scrollTop;
+            var scrollLeft = document.documentElement.scrollLeft?
+                            document.documentElement.scrollLeft:document.body.scrollLeft;
+            var elementLeft = rect.left+scrollLeft;
+            var elementTop = rect.top+scrollTop;
+
+            x = evt.pageX-elementLeft;
+            y = evt.pageY-elementTop;
+
+            return {x:x, y:y};
+        }
+    </script>
+</body>
+</html>

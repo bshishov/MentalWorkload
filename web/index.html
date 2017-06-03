@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Workload test</title>
+    <style>
+        * {
+            padding: 0;
+            margin: 0;
+        }
+
+        body {
+            background: #efefef;
+        }
+
+        .controls {
+            margin: 0 auto;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .controls a {
+            text-decoration: none;
+            background: #fff;
+            padding: 5px 10px;
+            margin: 10px;
+            border-radius: 10px;
+            color: black;
+        }
+
+        .controls a : hover {
+            background: #ccc;
+        }
+
+        .container {
+            background: white;
+            width: 800px;
+            height: 500px;
+            margin: 0 auto;
+            box-shadow: 0 0 40px rgba(0,0,0,0.2);
+        }
+    </style>
+    <script src="js/RecordRTC.js"></script>
+    <script src="js/DetectRTC.js"></script>
+    <script src="js/testRecorder.js"></script>
+</head>
+<body>
+    <div class="controls">
+        <a href="javascript:;" id="startButton">Start</a>
+    </div>
+    <div class="container">
+        <iframe id="testFrame" src="circles.html" width="100%" height="500px" frameborder="0" scrolling="no"></iframe>
+    </div>
+
+    <script type="text/javascript">
+        iframe = document.getElementById('testFrame');
+        function sendToIframe(name, data) {
+            if(iframe)
+                iframe.contentWindow.postMessage({ name: name, data: data }, "*");
+        }
+
+        function initContainer() {
+            var recorder = new TestRecorder(iframe, {
+                audio: false,
+                video: true,
+            });
+
+            var test = new TestManager(recorder);
+            document.getElementById('startButton').onclick =  function() {
+                test.start();
+            }
+
+            test.on("start", function() {
+                 sendToIframe("testStart");
+            });
+            test.on("complete", function() {
+                sendToIframe("testComplete");
+            });
+            test.on("sendComplete", function() {
+
+            });
+
+            DetectRTC.load(function() {
+                if(recorder.video && !DetectRTC.hasWebcam)
+                    alert("Camera is not detected. Please turn on your camera");
+
+                if(recorder.audio && !DetectRTC.hasMicrophone)
+                    alert("Microphone is not detected. Please turn on your microphone");
+            });
+
+            sendToIframe("testInit");
+
+            function onFrameMessage(event) {
+                if(event.data.name == "complete")
+                    test.complete();
+
+                if(event.data.name == "log") {
+                    var payload = event.data.data;
+                    test.log(payload.name, payload.data);
+                }
+            }
+            window.addEventListener("message", onFrameMessage, false);
+        }
+
+        iframe.onload = function() {
+            console.log('Test iframe loaded');
+            initContainer();
+            console.log('Test initialised');
+        };
+    </script>
+</body>
+</html>
