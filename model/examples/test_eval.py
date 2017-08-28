@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -18,6 +19,10 @@ for name in os.listdir(WORK_DIR):
             mse = ((w - p) ** 2).mean()
             mse_errors.append(mse)
             workloads.append(np.pad(w, (0, 5500 - len(w)), mode='constant'))
+
+
+print(mse_errors)
+pass
 
 workloads = np.array(workloads)
 print(workloads.shape)
