@@ -27,7 +27,7 @@ FEATURE_SET = FEATURES_POSE + FEATURES_GAZE + FEATURES_AU
 
 
 def extract_features_from_video(source, save_to=None, quite=False, output_video=None, verbose=True,
-                                process_if_exists=False):
+                                process_if_exists=False, raw=False):
     if save_to is None:
         save_to = source + '.features.csv'
     if process_if_exists or not os.path.exists(save_to):
@@ -43,6 +43,8 @@ def extract_features_from_video(source, save_to=None, quite=False, output_video=
         print('Video \"%s\" is already preprocessed, skipping feature extraction. '
               'Features are described in the file: \"%s\"' % (source, save_to))
     data = pandas.read_csv(save_to, sep=', ')
+    if raw:
+        return data
     data[FEATURES_AU] /= 5
     return data[FEATURE_SET]
 
